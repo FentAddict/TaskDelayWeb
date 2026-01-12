@@ -6,7 +6,7 @@ const API_CONFIG = {
     development: 'http://localhost:3000',
     
     // Producción (cambiar a tu dominio)
-    production: 'https://tu-servidor.com',
+    production: 'https://taskdelayweb-6e92a4a45e2f.herokuapp.com/',
     
     // Endpoints
     endpoints: {
@@ -18,7 +18,7 @@ const API_CONFIG = {
 };
 
 // Determinar el ambiente (puedes ajustar esto según tus necesidades)
-const ENVIRONMENT = 'development'; // Cambiar a 'production' en hosting
+const ENVIRONMENT = 'production'; // Cambiar a 'production' en hosting
 
 // URL base de la API
 const API_BASE_URL = API_CONFIG[ENVIRONMENT];

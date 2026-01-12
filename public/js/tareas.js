@@ -43,9 +43,9 @@ function obtenerSiguientePrueba() {
     }
 
     // Validar si ya se llegó al máximo de cada una
-    if (tipo === 2 && estado.contadorControl >= 3) return obtenerSiguientePrueba(); 
+    if (tipo === 2 && estado.contadorControl >= 12) return obtenerSiguientePrueba(); 
     if (tipo === 1 && estado.contadorErotic >= 24) return obtenerSiguientePrueba();
-    if (tipo === 0 && estado.contadorMonetary >= 1) return obtenerSiguientePrueba();
+    if (tipo === 0 && estado.contadorMonetary >= 24) return obtenerSiguientePrueba();
 
     return tipo;
 }
@@ -55,7 +55,7 @@ function flujoCuePanel() {
     if(sessionsBtn) sessionsBtn.classList.add('hidden');
 
     // Si ya se completaron todas las pruebas, mostrar total final
-    if (estado.contadorMonetary >= 1 && estado.contadorErotic >= 24 && estado.contadorControl >= 3) {
+    if (estado.contadorMonetary >= 24 && estado.contadorErotic >= 24 && estado.contadorControl >= 12) {
         mostrarTotalFinal();
         return;
     }
@@ -159,8 +159,7 @@ function iniciarTareaDiscriminacion() {
             tareaActual.clicked = true;
             tareaActual.tiempoRespuesta = 1000; // Máximo tiempo permitido
             console.log("No diste clic a tiempo.");
-            //tareaActual.exito = false;
-            tareaActual.exito = true; // PARA PRUEBAS, QUITAR DESPUÉS
+            tareaActual.exito = false;
             irARewardPanel();
         }
     }, 1000);
@@ -226,9 +225,8 @@ function irARewardPanel() {
     // Si tuvo éxito, calculamos la probabilidad según el tipo de recompensa
     const recompensaVal = estado.ultimaRecompensa; // El número 0-5 que guardamos en CuePanel
     const probabilidad = obtenerProbabilidad(recompensaVal);
-    //const exitoProbabilidad = Math.random() <= probabilidad;
+    const exitoProbabilidad = Math.random() <= probabilidad;
 
-    const exitoProbabilidad = true; // PARA PRUEBAS, QUITAR DESPUÉS
 
     // Guardar resultado de la probabilidad en el objeto de tarea
     tareaActual.exitoProbabilidad = exitoProbabilidad;

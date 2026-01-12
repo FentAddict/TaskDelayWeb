@@ -68,9 +68,10 @@ function initDatabase() {
 // =====================
 // RUTAS API
 // =====================
-
+// Servir frontend
+app.use(express.static(path.join(__dirname, 'public')));
 // GET / - Verificar que el servidor está corriendo
-app.get('/', (req, res) => {
+app.get('/api/status', (req, res) => {
     res.json({
         status: 'ok',
         message: 'TaskDelayWeb API Server',

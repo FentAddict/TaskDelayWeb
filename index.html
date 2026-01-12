@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarea de Discriminación</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Botón flotante a la izquierda para ver sesiones -->
+    <button id="sessions-btn" class="sessions-button">📊 Historial</button>
+
+    <div id="main-container">
+        
+        <section id="iniciar-panel" class="panel">
+            <h1>¡Bienvenido!</h1>
+            <div class="instructions">
+                <p>Muchas gracias por participar</p>
+                <p>El objetivo de la siguiente prueba es evaluar tu preferencia por ciertas recompensas al ponerte a prueba en tu velocidad de reacción.</p>
+                <p>Se te mostraran círculos con el tipo de recompensa que puedes ganar: un símbolo de mujer/hombre es una recompensa erótica, un símbolo de dinero es una recompensa monetaria. Si el circulo no tiene ningún icono, no ganaras recompensa.</p>
+                <p>También cada icono puede ser grande o pequeño, indicando que habrá más recompensa.</p>
+                <p>Cada círculo estará sombreado de rojo en un cuarto, la mitad, o 3/4 de su totalidad. Esto representa la probabilidad de la recompensa al contestar correctamente.</p>
+                <p>Después de este circulo, se te hará esperar antes de la prueba de reacción, donde un triangulo o un cuadrado se hará presente. Si es un triangulo da rápidamente al clic izquierdo, en cambio si es un cuadrado, da clic derecho rápidamente.</p>
+                <p>Una vez estés listo dale a continuar.</p>
+            </div>
+            <div class="start-choices">
+                
+                <div class="instruction-images">
+                    <img src="assets/triangleclick.gif" alt="Ejemplo: clic izquierdo en triángulo" class="instr-gif" />
+                    <img src="assets/squareclick.gif" alt="Ejemplo: clic derecho en cuadrado" class="instr-gif" />
+                </div>
+
+                <div class="folio-entry">
+                    <label for="folio-input">Folio:</label>
+                    <input id="folio-input" type="text" placeholder="Ingresa folio" />
+                </div>
+
+                <p>Seleccione la versión indicada</p>
+                <div class="version-buttons">
+                    <button class="version-button" disabled onclick="iniciarPrueba(0)">Hombre Hetero</button>
+                    <button class="version-button" disabled onclick="iniciarPrueba(1)">Gay</button>
+                    <button class="version-button" disabled onclick="iniciarPrueba(2)">Mujer</button>
+                    <button class="version-button" disabled onclick="iniciarPrueba(3)">Lesbiana</button>
+                </div>
+            </div>
+        </section>
+        <section id="cue-panel" class="panel hidden">
+            <h2 id="ensayo-label">Ensayo de práctica</h2>
+            <img id="cue-img" src="" alt="Cue">
+        </section>
+        <section id="reward-panel" class="panel hidden">
+            <img id="reward-img" src="" alt="Reward">
+            <p id="dinerillo"></p>
+        </section>
+        <section id="discrimination-panel" class="panel hidden">
+            <img id="target-img" src="" alt="Target">
+        </section>  
+
+        <section id="rate-panel" class="panel hidden">
+            <h2>Califique la Recompensa</h2>
+            <div id="radio-group"></div>
+        </section>
+
+        <section id="sessions-panel" class="panel hidden">
+            <button id="back-btn" class="back-button">← Volver</button>
+            <h2>Historial de Sesiones</h2>
+            <div id="sessions-container">
+                <p>No hay sesiones registradas aún.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        (function(){
+            const input = document.getElementById('folio-input');
+            const buttons = document.querySelectorAll('.version-button');
+            function updateButtons(){
+                const val = input.value.trim();
+                buttons.forEach(b => b.disabled = !val);
+            }
+            if(input){
+                input.addEventListener('input', updateButtons);
+                input.addEventListener('change', updateButtons);
+            }
+            // Exponer función global para obtener el folio si se necesita luego
+            window.getFolio = () => input ? input.value.trim() : '';
+        })();
+
+        // Manejador del botón de sesiones y panel
+        (function(){
+            const sessionsBtn = document.getElementById('sessions-btn');
+            const backBtn = document.getElementById('back-btn');
+            const sessionsPanel = document.getElementById('sessions-panel');
+            const iniciarPanel = document.getElementById('iniciar-panel');
+
+            if(sessionsBtn) {
+                sessionsBtn.addEventListener('click', () => {
+                    iniciarPanel.classList.add('hidden');
+                    sessionsPanel.classList.remove('hidden');
+                    sessionsBtn.classList.add('hidden');
+                    // Asegurar que el botón global 'back-btn' esté visible al entrar al listado
+                    const globalBack = document.getElementById('back-btn');
+                    if (globalBack) globalBack.classList.remove('hidden');
+                    cargarSesiones();
+                });
+            }
+
+            if(backBtn) {
+                backBtn.addEventListener('click', () => {
+                    sessionsPanel.classList.add('hidden');
+                    iniciarPanel.classList.remove('hidden');
+                    sessionsBtn.classList.remove('hidden');
+                });
+            }
+
+            window.cargarSesiones = function() {
+                const container = document.getElementById('sessions-container');
+                // Mostrar el botón global de volver (vuelve al panel inicial)
+                const globalBackBtn = document.getElementById('back-btn');
+                if (globalBackBtn) globalBackBtn.classList.remove('hidden');
+                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                if(sesiones.length === 0) {
+                    container.innerHTML = '<p>No hay sesiones registradas aún.</p>';
+                    return;
+                }
+                let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h3 style="margin:0">Sesiones</h3><button id="download-sessions-btn">Descargar sesiones</button></div>';
+                html += '<table style="width:100%; border-collapse:collapse;"><tr><th style="border:1px solid #ccc; padding:8px;">Folio</th><th style="border:1px solid #ccc; padding:8px;">Versión</th><th style="border:1px solid #ccc; padding:8px;">Dinero Ganado</th><th style="border:1px solid #ccc; padding:8px;">Fecha</th><th style="border:1px solid #ccc; padding:8px;">Acción</th></tr>';
+                sesiones.forEach((s, i) => {
+                    html += `<tr data-index="${i}"><td style="border:1px solid #ccc; padding:8px;">${s.folio}</td><td style="border:1px solid #ccc; padding:8px;">${s.version}</td><td style="border:1px solid #ccc; padding:8px;">$${s.totalGanado}</td><td style="border:1px solid #ccc; padding:8px;">${s.fecha}</td><td style="border:1px solid #ccc; padding:8px;"><button class="view-session-btn" data-index="${i}">Ver</button></td></tr>`;
+                });
+                html += '</table>';
+                container.innerHTML = html;
+                const dlBtn = document.getElementById('download-sessions-btn');
+                if (dlBtn) dlBtn.addEventListener('click', () => downloadSessionsCSV());
+
+                // Adjuntar manejadores a los botones 'Ver'
+                const btns = container.querySelectorAll('.view-session-btn');
+                btns.forEach(b => b.addEventListener('click', (ev) => {
+                    const idx = Number(ev.currentTarget.getAttribute('data-index'));
+                    mostrarTrialsDeSesion(idx);
+                }));
+            };
+
+            // Mostrar la lista de trials de una sesión (por índice en localStorage)
+            window.mostrarTrialsDeSesion = function(index) {
+                const container = document.getElementById('sessions-container');
+                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                const s = sesiones[index];
+                if (!s) {
+                    container.innerHTML = '<p>Sesión no encontrada.</p>';
+                    return;
+                }
+
+                const trials = s.trials || [];
+                let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><div><button id="back-to-sessions">← Volver al historial</button></div><div><button id="download-trials-btn">Descargar trials</button></div></div><h3>Trials - Folio: ${s.folio} (${s.version})</h3>`;
+                if (trials.length === 0) {
+                    html += '<p>No hay ensayos registrados para esta sesión.</p>';
+                } else {
+                    html += '<table style="width:100%; border-collapse:collapse;"><tr><th style="border:1px solid #ccc; padding:6px;">#</th><th style="border:1px solid #ccc; padding:6px;">Prueba</th><th style="border:1px solid #ccc; padding:6px;">Delay(ms)</th><th style="border:1px solid #ccc; padding:6px;">Tamaño</th><th style="border:1px solid #ccc; padding:6px;">Prob(%)</th><th style="border:1px solid #ccc; padding:6px;">RT(ms)</th><th style="border:1px solid #ccc; padding:6px;">Éxito</th><th style="border:1px solid #ccc; padding:6px;">ÉxitoProb</th><th style="border:1px solid #ccc; padding:6px;">Calificación</th></tr>';
+                    trials.forEach((t, i) => {
+                        html += `<tr><td style="border:1px solid #ccc; padding:6px;">${i+1}</td><td style="border:1px solid #ccc; padding:6px;">${t.nombrePrueba||''}</td><td style="border:1px solid #ccc; padding:6px;">${t.delayPantallaBlanca||''}</td><td style="border:1px solid #ccc; padding:6px;">${t.tamanoRecompensa||''}</td><td style="border:1px solid #ccc; padding:6px;">${t.probabilidad||''}</td><td style="border:1px solid #ccc; padding:6px;">${t.tiempoRespuesta||''}</td><td style="border:1px solid #ccc; padding:6px;">${t.exitoPrueba? 'Sí' : 'No'}</td><td style="border:1px solid #ccc; padding:6px;">${t.exitoProbabilidad? 'Sí' : 'No'}</td><td style="border:1px solid #ccc; padding:6px;">${t.calificacion!=null? t.calificacion : ''}</td></tr>`;
+                    });
+                    html += '</table>';
+                }
+
+                container.innerHTML = html;
+                // Ocultar el botón global de volver mientras se muestran los trials
+                const globalBackBtn = document.getElementById('back-btn');
+                if (globalBackBtn) globalBackBtn.classList.add('hidden');
+                const backBtn = document.getElementById('back-to-sessions');
+                if (backBtn) backBtn.addEventListener('click', () => cargarSesiones());
+                // Añadir botón de descarga para esta sesión
+                const dlTrialsBtn = document.getElementById('download-trials-btn');
+                if (dlTrialsBtn) dlTrialsBtn.addEventListener('click', () => downloadTrialsCSV(index));
+            };
+
+            // Descargar sesiones como CSV
+            window.downloadSessionsCSV = function() {
+                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                if (!sesiones || sesiones.length === 0) {
+                    alert('No hay sesiones para descargar.');
+                    return;
+                }
+                const headers = ['Folio','Versión','DineroGanado','Fecha','TrialsCount'];
+                const rows = sesiones.map(s => [s.folio || '', s.version || '', s.totalGanado || 0, s.fecha || '', (s.trials||[]).length]);
+                const csv = [headers, ...rows].map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sesiones.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            // Descargar trials de una sesión por índice
+            window.downloadTrialsCSV = function(index) {
+                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                const s = sesiones[index];
+                if (!s) { alert('Sesión no encontrada'); return; }
+                const trials = s.trials || [];
+                if (trials.length === 0) { alert('No hay ensayos para descargar en esta sesión.'); return; }
+                const headers = ['#','Prueba','Delay(ms)','Tamaño','Prob(%)','RT(ms)','Éxito','ÉxitoProb','Calificación'];
+                const rows = trials.map((t,i) => [i+1, t.nombrePrueba||'', t.delayPantallaBlanca||'', t.tamanoRecompensa||'', t.probabilidad||'', t.tiempoRespuesta||'', t.exitoPrueba? 'Sí':'No', t.exitoProbabilidad? 'Sí':'No', (t.calificacion!=null? t.calificacion : '')]);
+                const csv = [headers, ...rows].map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `trials_sesion_${(s.folio||'session')}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+        })();
+    </script>
+    <script src="js/apiConfig.js"></script>
+    <script src="js/estado.js"></script>
+    
+    <script src="js/tareas.js"></script>
+    
+    <script src="js/navegacion.js"></script>
+</body>
+</html>

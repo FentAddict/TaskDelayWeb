@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bienvenida - TaskDelay</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="welcome-container" class="welcome-container">
+        <!-- Imagen de encabezado -->
+        <div class="welcome-header">
+            <img id="welcome-image" src="assets/Logo_01.png" alt="Encabezado" class="welcome-image">
+        </div>
+
+        <!-- Texto de bienvenida -->
+        <div class="welcome-content">
+            <h1 id="welcome-title" class="welcome-title">¡Bienvenido!</h1>
+            <p id="welcome-text" class="welcome-text">
+                <p>Muchas gracias por participar</p>
+                <p>Toda la información recopilada durante esta tarea se mantendrá estrictamente confidencial.
+                Los datos se utilizarán únicamente para fines de investigación.
+                Tu participación en esta tarea es completamente voluntaria. No hay obligación de participar y puedes retirarte
+                en cualquier momento. Si tienes alguna pregunta sobre la tarea o necesitas más información antes de decidir
+                participar, por favor, no dudes en contactarnos en manuel.leon225687@potros.itson.edu.mx</p>
+                <p>A continuación:</p>
+                <p>A) Deberás contestar un formulario y realizar cuatro tareas comportamentales.</p>
+                <p>B) Cada una de las tareas te pedirá un nombre o ID.</p>
+                <p>C) Te pedimos que, en cada una, utilices las iniciales de tu nombre y los últimos cuatro números de tu número telefónico.</p>
+            </p>
+        </div>
+
+        <!-- Botones -->
+        <div class="welcome-buttons">
+            <button class="welcome-btn" onclick="openExternalForm1()">
+                Formulario
+            </button>
+            <button class="welcome-btn" onclick="openExternalForm2()">
+                IGT
+            </button>
+            <button class="welcome-btn" onclick="openExternalForm3()">
+                DD
+            </button>
+            <button class="welcome-btn btn-primary" onclick="goToTest()">
+                DelayTask
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Función para abrir formulario externo 1
+        function openExternalForm1() {
+            window.open('https://forms.gle/cA8YQUM3agmhzATY7', '_blank');
+        }
+
+        // Función para abrir formulario externo 2
+        function openExternalForm2() {
+            window.open('https://lcsia.com.mx/TaskCF.html#IGT', '_blank');
+        }
+
+        // Función para abrir formulario externo 3
+        function openExternalForm3() {
+            window.open('https://lcsia.com.mx/TaskCF.html#DD', '_blank');
+        }
+
+        // Función para ir a la prueba DelayTask
+        function goToTest() {
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>

@@ -68,9 +68,15 @@ function initDatabase() {
 // =====================
 // RUTAS API
 // =====================
-// Servir frontend
-app.use(express.static(path.join(__dirname, 'public')));
-// GET / - Verificar que el servidor está corriendo
+// Servir frontend (no servir automáticamente index.html para permitir página de bienvenida personalizada)
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+
+// GET / - Servir la página de bienvenida como página principal
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'welcome.html'));
+});
+
+// GET /api/status - Verificar que el servidor está corriendo
 app.get('/api/status', (req, res) => {
     res.json({
         status: 'ok',

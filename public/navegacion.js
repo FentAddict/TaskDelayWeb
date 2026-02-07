@@ -27,6 +27,9 @@ function iniciarPrueba(versionSeleccionada) {
         // ocultar botón de sesiones cuando empieza la prueba
         const sessionsBtn = document.getElementById('sessions-btn');
         if (sessionsBtn) sessionsBtn.classList.add('hidden');
+        // ocultar botón de inicio cuando empieza la prueba
+        const homeBtn = document.getElementById('home-btn');
+        if (homeBtn) homeBtn.classList.add('hidden');
         flujoCuePanel();
     }).catch(err => {
         console.error('Error cargando índices de imágenes:', err);

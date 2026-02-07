@@ -293,6 +293,9 @@ function mostrarTotalFinal() {
     
     alert("Fin de las pruebas. Total ganado: $" + total);
     const main = document.getElementById('main-container');
+    // Asegurar que el botón de inicio esté visible de nuevo
+    const homeBtn = document.getElementById('home-btn');
+    if (homeBtn) homeBtn.classList.remove('hidden');
     if (main) {
         main.innerHTML = `<section class="panel"><h2>Fin de las pruebas</h2><p>Total ganado: $${total}</p><p><a href="#" onclick="location.reload(); return false;">Volver al inicio</a></p></section>`;
     }

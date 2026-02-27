@@ -190,6 +190,8 @@
                         if (res.ok) {
                             const data = await res.json();
                             s = data.session;
+                            // adjuntar ensayos retornados por la API
+                            if (data.trials) s.trials = data.trials;
                             fromServer = true;
                         } else {
                             throw new Error('HTTP ' + res.status);

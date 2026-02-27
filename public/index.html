@@ -118,39 +118,93 @@
                 });
             }
 
-            window.cargarSesiones = function() {
+            window.cargarSesiones = async function() {
                 const container = document.getElementById('sessions-container');
                 // Mostrar el botón global de volver (vuelve al panel inicial)
                 const globalBackBtn = document.getElementById('back-btn');
                 if (globalBackBtn) globalBackBtn.classList.remove('hidden');
-                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                // intentamos obtener sesiones desde el servidor
+                let sesiones = [];
+                try {
+                    const res = await fetch(API_BASE_URL + API_CONFIG.endpoints.sessions);
+                    if (res.ok) {
+                        const data = await res.json();
+                        sesiones = data.sessions || [];
+                    } else {
+                        throw new Error('HTTP ' + res.status);
+                    }
+                } catch (e) {
+                    console.warn('No se pudieron cargar sesiones del servidor, usando caché local:', e);
+                    sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                }
+
                 if(sesiones.length === 0) {
                     container.innerHTML = '<p>No hay sesiones registradas aún.</p>';
                     return;
                 }
-                let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h3 style="margin:0">Sesiones</h3><button id="download-sessions-btn">Descargar sesiones</button></div>';
-                html += '<table style="width:100%; border-collapse:collapse;"><tr><th style="border:1px solid #ccc; padding:8px;">Folio</th><th style="border:1px solid #ccc; padding:8px;">Versión</th><th style="border:1px solid #ccc; padding:8px;">Dinero Ganado</th><th style="border:1px solid #ccc; padding:8px;">Fecha</th><th style="border:1px solid #ccc; padding:8px;">Acción</th></tr>';
-                sesiones.forEach((s, i) => {
-                    html += `<tr data-index="${i}"><td style="border:1px solid #ccc; padding:8px;">${s.folio}</td><td style="border:1px solid #ccc; padding:8px;">${s.version}</td><td style="border:1px solid #ccc; padding:8px;">$${s.totalGanado}</td><td style="border:1px solid #ccc; padding:8px;">${s.fecha}</td><td style="border:1px solid #ccc; padding:8px;"><button class="view-session-btn" data-index="${i}">Ver</button></td></tr>`;
+
+                let html = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">'
+                         + '<h3 style="margin:0">Sesiones</h3>'
+                         + '<button id="download-sessions-btn">Descargar sesiones</button>'
+                         + '</div>';
+                html += '<table style="width:100%; border-collapse:collapse;">'
+                     + '<tr><th style="border:1px solid #ccc; padding:8px;">Folio</th>'
+                     + '<th style="border:1px solid #ccc; padding:8px;">Versión</th>'
+                     + '<th style="border:1px solid #ccc; padding:8px;">Dinero Ganado</th>'
+                     + '<th style="border:1px solid #ccc; padding:8px;">Fecha</th>'
+                     + '<th style="border:1px solid #ccc; padding:8px;">Acción</th></tr>';
+                sesiones.forEach((s) => {
+                    // si viene del servidor debería tener `id`
+                    const idAttr = s.id != null ? `data-id="${s.id}"` : '';
+                    const displayIndex = s.id != null ? s.id : '';
+                    html += `<tr ${idAttr}><td style="border:1px solid #ccc; padding:8px;">${s.folio}</td><td style="border:1px solid #ccc; padding:8px;">${s.version}</td><td style="border:1px solid #ccc; padding:8px;">$${s.totalGanado}</td><td style="border:1px solid #ccc; padding:8px;">${s.fecha}</td><td style="border:1px solid #ccc; padding:8px;"><button class="view-session-btn" ${idAttr}>Ver</button></td></tr>`;
                 });
                 html += '</table>';
                 container.innerHTML = html;
                 const dlBtn = document.getElementById('download-sessions-btn');
-                if (dlBtn) dlBtn.addEventListener('click', () => downloadSessionsCSV());
+                if (dlBtn) dlBtn.addEventListener('click', () => downloadSessionsCSV(sesiones));
 
                 // Adjuntar manejadores a los botones 'Ver'
                 const btns = container.querySelectorAll('.view-session-btn');
                 btns.forEach(b => b.addEventListener('click', (ev) => {
-                    const idx = Number(ev.currentTarget.getAttribute('data-index'));
-                    mostrarTrialsDeSesion(idx);
+                    const id = ev.currentTarget.getAttribute('data-id');
+                    // si tenemos id, obtenemos del servidor; de lo contrario usamos índice local
+                    if (id) mostrarTrialsDeSesion(null, id);
+                    else {
+                        const idx = Number(ev.currentTarget.getAttribute('data-index'));
+                        mostrarTrialsDeSesion(idx);
+                    }
                 }));
             };
 
-            // Mostrar la lista de trials de una sesión (por índice en localStorage)
-            window.mostrarTrialsDeSesion = function(index) {
+            // Mostrar la lista de trials de una sesión (por índice local o por id remoto)
+            window.mostrarTrialsDeSesion = async function(index, id) {
                 const container = document.getElementById('sessions-container');
-                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
-                const s = sesiones[index];
+                let s;
+                let fromServer = false;
+
+                if (id) {
+                    // obtener del servidor por id
+                    try {
+                        const res = await fetch(API_BASE_URL + API_CONFIG.endpoints.sessionById.replace(':id', id));
+                        if (res.ok) {
+                            const data = await res.json();
+                            s = data.session;
+                            fromServer = true;
+                        } else {
+                            throw new Error('HTTP ' + res.status);
+                        }
+                    } catch (e) {
+                        console.warn('Error obteniendo sesión del servidor:', e);
+                        // si falla, intentamos local
+                    }
+                }
+
+                if (!s) {
+                    const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                    s = sesiones[index];
+                }
+
                 if (!s) {
                     container.innerHTML = '<p>Sesión no encontrada.</p>';
                     return;
@@ -176,12 +230,14 @@
                 if (backBtn) backBtn.addEventListener('click', () => cargarSesiones());
                 // Añadir botón de descarga para esta sesión
                 const dlTrialsBtn = document.getElementById('download-trials-btn');
-                if (dlTrialsBtn) dlTrialsBtn.addEventListener('click', () => downloadTrialsCSV(index));
+                if (dlTrialsBtn) dlTrialsBtn.addEventListener('click', () => downloadTrialsCSV(fromServer ? s : index, fromServer));
             };
 
-            // Descargar sesiones como CSV
-            window.downloadSessionsCSV = function() {
-                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+            // Descargar sesiones como CSV (se puede pasar array de sesiones ya obtenido)
+            window.downloadSessionsCSV = function(sesiones) {
+                if (!sesiones) {
+                    sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                }
                 if (!sesiones || sesiones.length === 0) {
                     alert('No hay sesiones para descargar.');
                     return;
@@ -200,10 +256,18 @@
                 URL.revokeObjectURL(url);
             };
 
-            // Descargar trials de una sesión por índice
-            window.downloadTrialsCSV = function(index) {
-                const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
-                const s = sesiones[index];
+            // Descargar trials de una sesión; puede recibir un índice local o un objeto sesión
+            // si "fromServer" se pasa con objeto, usar ese; de lo contrario index local.
+            window.downloadTrialsCSV = function(arg, fromServer) {
+                let s;
+                if (fromServer && typeof arg === 'object') {
+                    s = arg;
+                } else if (typeof arg === 'number') {
+                    const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
+                    s = sesiones[arg];
+                } else {
+                    s = arg; // caso de que pasen un objeto sin flag
+                }
                 if (!s) { alert('Sesión no encontrada'); return; }
                 const trials = s.trials || [];
                 if (trials.length === 0) { alert('No hay ensayos para descargar en esta sesión.'); return; }

@@ -1,17 +1,33 @@
 // 1. Esta es la función que el HTML busca al hacer clic
-function iniciarPrueba(versionSeleccionada) {
+async function iniciarPrueba(versionSeleccionada) {
     // Cargar índices de imágenes primero (async). Si falla, continuamos en modo degradado.
     // Verificar folio único en localStorage antes de empezar
     const folioInputVal = (window.getFolio && typeof window.getFolio === 'function') ? window.getFolio() : '';
     if (folioInputVal) {
+        // primero ver en el caché local
         try {
             const sesiones = JSON.parse(localStorage.getItem('sesiones') || '[]');
             if (sesiones.some(s => String(s.folio || '').trim() === String(folioInputVal).trim())) {
-                alert('El folio "' + folioInputVal + '" ya existe. Por favor ingresa un folio diferente.');
+                alert('El folio "' + folioInputVal + '" ya existe (local). Por favor ingresa un folio diferente.');
                 return;
             }
         } catch (e) {
             console.warn('No se pudo verificar folios en localStorage:', e);
+        }
+        // luego consultar al servidor si está disponible
+        try {
+            const base = (typeof API_BASE_URL !== 'undefined') ? API_BASE_URL : '';
+            const endpoint = base + (API_CONFIG && API_CONFIG.endpoints && API_CONFIG.endpoints.sessionByFolio ? API_CONFIG.endpoints.sessionByFolio.replace(':folio', folioInputVal) : '/api/sessions/folio/' + encodeURIComponent(folioInputVal));
+            const resp = await fetch(endpoint);
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data && data.session) {
+                    alert('El folio "' + folioInputVal + '" ya existe en el servidor. Por favor ingresa un folio diferente.');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Error verificando folio en el servidor (se ignorará):', e);
         }
     }
 

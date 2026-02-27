@@ -6,7 +6,7 @@ const API_CONFIG = {
     development: 'http://localhost:3000',
     
     // Producción (cambiar a tu dominio)
-    production: 'https://taskdelayweb-6e92a4a45e2f.herokuapp.com/',
+    production: 'https://taskdelayweb-6e92a4a45e2f.herokuapp.com',
     
     // Endpoints
     endpoints: {

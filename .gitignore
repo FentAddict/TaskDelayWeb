@@ -1,0 +1,30 @@
+# Credenciales y variables de entorno
+.env
+.env.local
+.env.*.local
+
+# Dependencias
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Base de datos local
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log

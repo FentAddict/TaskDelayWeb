@@ -1,69 +1,54 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const mongoose = require('mongoose');
+require('dotenv').config();
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_PATH = path.join(__dirname, 'taskdelay.db');
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
-// Inicializar base de datos
-const db = new sqlite3.Database(DB_PATH, (err) => {
-    if (err) {
-        console.error('Error abriendo base de datos:', err);
-    } else {
-        console.log('Conectado a SQLite en:', DB_PATH);
-        initDatabase();
-    }
-});
-
-// Crear tablas si no existen
-function initDatabase() {
-    db.serialize(() => {
-        // Tabla de sesiones
-        db.run(`
-            CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                folio TEXT NOT NULL UNIQUE,
-                version TEXT NOT NULL,
-                totalGanado INTEGER NOT NULL,
-                fecha TEXT NOT NULL,
-                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        `, (err) => {
-            if (err) console.error('Error creando tabla sessions:', err);
-            else console.log('Tabla sessions lista');
-        });
-
-        // Tabla de ensayos (trials) - vinculada a sesiones
-        db.run(`
-            CREATE TABLE IF NOT EXISTS trials (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sessionId INTEGER NOT NULL,
-                nombrePrueba TEXT,
-                delayPantallaBlanca INTEGER,
-                tamanoRecompensa TEXT,
-                probabilidad INTEGER,
-                tiempoRespuesta INTEGER,
-                exitoPrueba INTEGER,
-                exitoProbabilidad INTEGER,
-                calificacion INTEGER,
-                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (sessionId) REFERENCES sessions(id) ON DELETE CASCADE
-            )
-        `, (err) => {
-            if (err) console.error('Error creando tabla trials:', err);
-            else console.log('Tabla trials lista');
-        });
+// Conectar a MongoDB Atlas usando mongoose
+if (!MONGODB_URI) {
+    console.warn('MONGODB_URI no está definido. Define la variable de entorno para conectar a MongoDB Atlas.');
+} else {
+    mongoose.connect(MONGODB_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    }).then(() => {
+        console.log('Conectado a MongoDB Atlas');
+    }).catch((err) => {
+        console.error('Error conectando a MongoDB:', err);
     });
 }
+
+// Definir esquemas y modelos
+const TrialSchema = new mongoose.Schema({
+    nombrePrueba: { type: String },
+    delayPantallaBlanca: { type: Number },
+    tamanoRecompensa: { type: String },
+    probabilidad: { type: Number },
+    tiempoRespuesta: { type: Number },
+    exitoPrueba: { type: Boolean },
+    exitoProbabilidad: { type: Boolean },
+    calificacion: { type: Number }
+}, { _id: false });
+
+const SessionSchema = new mongoose.Schema({
+    folio: { type: String, required: true, unique: true },
+    version: { type: String, required: true },
+    totalGanado: { type: Number, default: 0 },
+    fecha: { type: String, default: () => new Date().toLocaleString('es-ES') },
+    trials: { type: [TrialSchema], default: [] }
+}, { timestamps: true });
+
+const Session = mongoose.model('Session', SessionSchema);
 
 // =====================
 // RUTAS API
@@ -88,222 +73,134 @@ app.get('/api/status', (req, res) => {
 
 // POST /api/sessions - Guardar una sesión completa con sus ensayos
 app.post('/api/sessions', (req, res) => {
-    const { folio, version, totalGanado, fecha, trials } = req.body;
+    (async () => {
+        try {
+            const { folio, version, totalGanado, fecha, trials } = req.body;
 
-    if (!folio || !version) {
-        return res.status(400).json({ error: 'folio y version son requeridos' });
-    }
-
-    // Insertar sesión
-    db.run(
-        `INSERT INTO sessions (folio, version, totalGanado, fecha)
-         VALUES (?, ?, ?, ?)`,
-        [folio, version, totalGanado || 0, fecha || new Date().toLocaleString('es-ES')],
-        function(err) {
-            if (err) {
-                // Si hay duplicado de folio, actualizar en lugar de insertar
-                if (err.message.includes('UNIQUE constraint failed')) {
-                    return res.status(409).json({ error: 'El folio ya existe' });
-                }
-                console.error('Error insertando sesión:', err);
-                return res.status(500).json({ error: 'Error guardando sesión' });
+            if (!folio || !version) {
+                return res.status(400).json({ error: 'folio y version son requeridos' });
             }
 
-            const sessionId = this.lastID;
+            const session = new Session({
+                folio,
+                version,
+                totalGanado: totalGanado || 0,
+                fecha: fecha || new Date().toLocaleString('es-ES'),
+                trials: Array.isArray(trials) ? trials : []
+            });
 
-            // Insertar ensayos si existen
-            if (Array.isArray(trials) && trials.length > 0) {
-                const stmt = db.prepare(
-                    `INSERT INTO trials (
-                        sessionId, nombrePrueba, delayPantallaBlanca, tamanoRecompensa,
-                        probabilidad, tiempoRespuesta, exitoPrueba, exitoProbabilidad, calificacion
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                );
+            await session.save();
 
-                let trialCount = 0;
-                trials.forEach((trial) => {
-                    stmt.run(
-                        sessionId,
-                        trial.nombrePrueba || null,
-                        trial.delayPantallaBlanca || null,
-                        trial.tamanoRecompensa || null,
-                        trial.probabilidad || null,
-                        trial.tiempoRespuesta || null,
-                        trial.exitoPrueba ? 1 : 0,
-                        trial.exitoProbabilidad ? 1 : 0,
-                        trial.calificacion || null
-                    );
-                    trialCount++;
-                });
-
-                stmt.finalize((err) => {
-                    if (err) {
-                        console.error('Error insertando ensayos:', err);
-                    }
-                    res.status(201).json({
-                        success: true,
-                        message: 'Sesión guardada exitosamente',
-                        sessionId: sessionId,
-                        trialsCount: trialCount
-                    });
-                });
-            } else {
-                res.status(201).json({
-                    success: true,
-                    message: 'Sesión guardada exitosamente',
-                    sessionId: sessionId,
-                    trialsCount: 0
-                });
+            res.status(201).json({
+                success: true,
+                message: 'Sesión guardada exitosamente',
+                sessionId: session._id,
+                trialsCount: session.trials.length
+            });
+        } catch (err) {
+            if (err.code === 11000) {
+                return res.status(409).json({ error: 'El folio ya existe' });
             }
+            console.error('Error guardando sesión:', err);
+            res.status(500).json({ error: 'Error guardando sesión' });
         }
-    );
+    })();
 });
 
 // GET /api/sessions - Obtener todas las sesiones
 app.get('/api/sessions', (req, res) => {
-    db.all(
-        `SELECT * FROM sessions ORDER BY createdAt DESC LIMIT 100`,
-        (err, rows) => {
-            if (err) {
-                console.error('Error obteniendo sesiones:', err);
-                return res.status(500).json({ error: 'Error obteniendo sesiones' });
-            }
-            res.json({ success: true, sessions: rows || [] });
+    (async () => {
+        try {
+            const sessions = await Session.find().sort({ createdAt: -1 }).limit(100).lean().exec();
+            res.json({ success: true, sessions: sessions || [] });
+        } catch (err) {
+            console.error('Error obteniendo sesiones:', err);
+            res.status(500).json({ error: 'Error obteniendo sesiones' });
         }
-    );
+    })();
 });
 
 // GET /api/sessions/:id - Obtener una sesión con sus ensayos
 app.get('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
 
-    db.get(
-        `SELECT * FROM sessions WHERE id = ?`,
-        [id],
-        (err, session) => {
-            if (err) {
-                console.error('Error obteniendo sesión:', err);
-                return res.status(500).json({ error: 'Error obteniendo sesión' });
-            }
-
-            if (!session) {
-                return res.status(404).json({ error: 'Sesión no encontrada' });
-            }
-
-            // Obtener ensayos asociados
-            db.all(
-                `SELECT * FROM trials WHERE sessionId = ? ORDER BY id ASC`,
-                [id],
-                (err, trials) => {
-                    if (err) {
-                        console.error('Error obteniendo ensayos:', err);
-                        return res.status(500).json({ error: 'Error obteniendo ensayos' });
-                    }
-
-                    res.json({
-                        success: true,
-                        session: session,
-                        trials: trials || []
-                    });
-                }
-            );
+    (async () => {
+        try {
+            const session = await Session.findById(id).lean().exec();
+            if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
+            res.json({ success: true, session: session, trials: session.trials || [] });
+        } catch (err) {
+            console.error('Error obteniendo sesión:', err);
+            res.status(500).json({ error: 'Error obteniendo sesión' });
         }
-    );
+    })();
 });
 
 // GET /api/sessions/folio/:folio - Obtener sesión por folio
 app.get('/api/sessions/folio/:folio', (req, res) => {
     const { folio } = req.params;
 
-    db.get(
-        `SELECT * FROM sessions WHERE folio = ?`,
-        [folio],
-        (err, session) => {
-            if (err) {
-                console.error('Error obteniendo sesión:', err);
-                return res.status(500).json({ error: 'Error obteniendo sesión' });
-            }
-
-            if (!session) {
-                return res.status(404).json({ error: 'Sesión no encontrada' });
-            }
-
-            // Obtener ensayos asociados
-            db.all(
-                `SELECT * FROM trials WHERE sessionId = ? ORDER BY id ASC`,
-                [session.id],
-                (err, trials) => {
-                    if (err) {
-                        console.error('Error obteniendo ensayos:', err);
-                        return res.status(500).json({ error: 'Error obteniendo ensayos' });
-                    }
-
-                    res.json({
-                        success: true,
-                        session: session,
-                        trials: trials || []
-                    });
-                }
-            );
+    (async () => {
+        try {
+            const session = await Session.findOne({ folio }).lean().exec();
+            if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
+            res.json({ success: true, session: session, trials: session.trials || [] });
+        } catch (err) {
+            console.error('Error obteniendo sesión:', err);
+            res.status(500).json({ error: 'Error obteniendo sesión' });
         }
-    );
+    })();
 });
 
 // DELETE /api/sessions/:id - Eliminar una sesión (y sus ensayos)
 app.delete('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
-
-    db.run(
-        `DELETE FROM sessions WHERE id = ?`,
-        [id],
-        function(err) {
-            if (err) {
-                console.error('Error eliminando sesión:', err);
-                return res.status(500).json({ error: 'Error eliminando sesión' });
-            }
-
-            if (this.changes === 0) {
-                return res.status(404).json({ error: 'Sesión no encontrada' });
-            }
-
+    (async () => {
+        try {
+            const deleted = await Session.findByIdAndDelete(id).exec();
+            if (!deleted) return res.status(404).json({ error: 'Sesión no encontrada' });
             res.json({ success: true, message: 'Sesión eliminada' });
+        } catch (err) {
+            console.error('Error eliminando sesión:', err);
+            res.status(500).json({ error: 'Error eliminando sesión' });
         }
-    );
+    })();
 });
 
 // GET /api/stats - Estadísticas generales
 app.get('/api/stats', (req, res) => {
-    db.get(
-        `SELECT 
-            COUNT(*) as totalSessions,
-            SUM(totalGanado) as totalMoneyWon,
-            AVG(totalGanado) as avgMoneyPerSession
-         FROM sessions`,
-        (err, stats) => {
-            if (err) {
-                console.error('Error obteniendo estadísticas:', err);
-                return res.status(500).json({ error: 'Error obteniendo estadísticas' });
-            }
-
-            db.get(
-                `SELECT COUNT(*) as totalTrials FROM trials`,
-                (err, trialStats) => {
-                    if (err) {
-                        console.error('Error obteniendo estadísticas de ensayos:', err);
-                        return res.status(500).json({ error: 'Error obteniendo estadísticas' });
+    (async () => {
+        try {
+            const totalSessions = await Session.countDocuments().exec();
+            const agg = await Session.aggregate([
+                {
+                    $group: {
+                        _id: null,
+                        totalMoneyWon: { $sum: '$totalGanado' },
+                        avgMoneyPerSession: { $avg: '$totalGanado' }
                     }
-
-                    res.json({
-                        success: true,
-                        stats: {
-                            ...stats,
-                            totalTrials: trialStats.totalTrials
-                        }
-                    });
                 }
-            );
+            ]).exec();
+
+            const trialsAgg = await Session.aggregate([
+                { $project: { trialsCount: { $size: { $ifNull: ['$trials', []] } } } },
+                { $group: { _id: null, totalTrials: { $sum: '$trialsCount' } } }
+            ]).exec();
+
+            res.json({
+                success: true,
+                stats: {
+                    totalSessions,
+                    totalMoneyWon: agg[0] ? agg[0].totalMoneyWon : 0,
+                    avgMoneyPerSession: agg[0] ? agg[0].avgMoneyPerSession : 0,
+                    totalTrials: trialsAgg[0] ? trialsAgg[0].totalTrials : 0
+                }
+            });
+        } catch (err) {
+            console.error('Error obteniendo estadísticas:', err);
+            res.status(500).json({ error: 'Error obteniendo estadísticas' });
         }
-    );
+    })();
 });
 
 // =====================
@@ -327,7 +224,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
     console.log(`\n🚀 Servidor TaskDelayWeb corriendo en http://localhost:${PORT}`);
-    console.log(`📊 Base de datos: ${DB_PATH}`);
+    console.log(`📊 Base de datos: ${MONGODB_URI ? 'MongoDB Atlas (MONGODB_URI)' : 'No configurada'}`);
     console.log(`\nEndpoints disponibles:`);
     console.log(`  POST   /api/sessions           - Guardar sesión`);
     console.log(`  GET    /api/sessions           - Obtener todas las sesiones`);
@@ -339,10 +236,12 @@ app.listen(PORT, () => {
 
 // Cerrar BD al terminar
 process.on('SIGINT', () => {
-    console.log('\nCerrando base de datos...');
-    db.close((err) => {
-        if (err) console.error(err);
-        else console.log('Base de datos cerrada');
+    console.log('\nCerrando conexión a MongoDB...');
+    mongoose.disconnect().then(() => {
+        console.log('Conexión a MongoDB cerrada');
         process.exit(0);
+    }).catch((err) => {
+        console.error('Error al desconectar MongoDB:', err);
+        process.exit(1);
     });
 });

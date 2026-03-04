@@ -18,7 +18,7 @@ TaskDelayWeb/
 │   ├── package.json           # Dependencias
 │   ├── .env.example           # Variables de entorno
 │   └── README.md              # Documentación del servidor
-└── taskdelay.db               # Base de datos SQLite (se crea automáticamente)
+└── (Datos en MongoDB Atlas)   # Ahora la aplicación usa MongoDB Atlas
 ```
 
 ## Paso 1: Instalar el Cliente (Frontend)
@@ -86,15 +86,15 @@ El archivo `js/apiConfig.js` ya está configurado para usar `http://localhost:30
    - Si usas VS Code: extensión "Live Server"
    - Si usas Python: `python -m http.server 8000`
 
-2. Llena un folio y realiza una prueba completa
+4. Llena un folio y realiza una prueba completa
 
 3. Cuando termine, deberías ver en la consola:
    ```
    📤 Enviando sesión a: http://localhost:3000/api/sessions
-   ✅ Sesión guardada en servidor: { success: true, sessionId: 1, ... }
+   ✅ Sesión guardada en servidor: { success: true, sessionId: "<mongo-id>", ... }
    ```
 
-4. Los datos se guardarán en `server/taskdelay.db`
+4. Los datos se guardarán en tu instancia de MongoDB Atlas (configurada vía `MONGODB_URI`)
 
 ## Paso 4: Desplegar en Producción
 
@@ -325,10 +325,11 @@ curl https://tu-dominio.com/api/stats
 
 ## Backup de Base de Datos
 
-La base de datos está en `server/taskdelay.db`. Realiza backups regulares:
+Los datos están en MongoDB Atlas. Para respaldos, usa `mongodump` o las herramientas del proveedor Atlas:
 
 ```bash
-cp server/taskdelay.db server/taskdelay.db.backup
+# Ejemplo: backup local con mongodump
+mongodump --uri "$MONGODB_URI" --archive=backup_$(date +%F).gz --gzip
 ```
 
 ---

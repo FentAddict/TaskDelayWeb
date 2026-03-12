@@ -112,7 +112,12 @@ app.get('/api/sessions', (req, res) => {
     (async () => {
         try {
             const sessions = await Session.find().sort({ createdAt: -1 }).limit(100).lean().exec();
-            res.json({ success: true, sessions: sessions || [] });
+            // Convertir _id a id para compatibilidad con el frontend
+            const sessionsWithId = sessions.map(s => ({
+                ...s,
+                id: s._id
+            }));
+            res.json({ success: true, sessions: sessionsWithId || [] });
         } catch (err) {
             console.error('Error obteniendo sesiones:', err);
             res.status(500).json({ error: 'Error obteniendo sesiones' });
@@ -128,7 +133,12 @@ app.get('/api/sessions/:id', (req, res) => {
         try {
             const session = await Session.findById(id).lean().exec();
             if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
-            res.json({ success: true, session: session, trials: session.trials || [] });
+            // Convertir _id a id para compatibilidad con el frontend
+            const sessionWithId = {
+                ...session,
+                id: session._id
+            };
+            res.json({ success: true, session: sessionWithId, trials: session.trials || [] });
         } catch (err) {
             console.error('Error obteniendo sesión:', err);
             res.status(500).json({ error: 'Error obteniendo sesión' });
@@ -144,7 +154,12 @@ app.get('/api/sessions/folio/:folio', (req, res) => {
         try {
             const session = await Session.findOne({ folio }).lean().exec();
             if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
-            res.json({ success: true, session: session, trials: session.trials || [] });
+            // Convertir _id a id para compatibilidad con el frontend
+            const sessionWithId = {
+                ...session,
+                id: session._id
+            };
+            res.json({ success: true, session: sessionWithId, trials: session.trials || [] });
         } catch (err) {
             console.error('Error obteniendo sesión:', err);
             res.status(500).json({ error: 'Error obteniendo sesión' });
